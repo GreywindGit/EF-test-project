@@ -9,6 +9,7 @@ namespace UserStoryGenerator
 {
     class Program
     {
+        private static readonly Random Rnd = new Random();
         static void Main(string[] args)
         {
             // User input
@@ -99,8 +100,7 @@ namespace UserStoryGenerator
 
         public static string CreateRecordLine(Queue<string> words, int low, int high)
         {
-            var rnd = new Random();
-            var times = rnd.Next(low, high);
+            var times = Rnd.Next(low, high);
             var temp = "";
             for (var j = 0; j < times; j++)
             {
