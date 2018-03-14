@@ -17,20 +17,6 @@ namespace UserStoryGenerator
             var inputFile = Console.ReadLine();
             var fileContent = new List<string>();
 
-            Console.Write("Destination file: ");
-            var outputFile = Console.ReadLine();
-            if (File.Exists(outputFile))
-            {
-                try
-                {
-                    File.Delete(outputFile);
-                }
-                catch (UnauthorizedAccessException e)
-                {
-                    Console.WriteLine(e.Message);
-                }
-            }
-
             Console.Write("Number of user stories: ");
             var userStories = Int32.Parse(Console.ReadLine());
 
@@ -55,47 +41,85 @@ namespace UserStoryGenerator
 
             var wordList = string.Join(" ", fileContent).Split(' ').ToList();
             var words = new Queue<string>(wordList);
-            var record = new List<string>();
+            
 
-
-            // Create user stories, write them to the output file.
+            // Create user stories and write them to DB.
             for (var i = 0; i < userStories; i++)
             {
-                record = CreateRecord(words);
-                try
+                Console.Write("User story id: ");
+                var storyId = Console.ReadLine();
+                var newStory = CreateUserStory(storyId, words);
+                var criterias = new List<Criteria>();
+                var criteriaNum = Rnd.Next(0, 7);
+                if (criteriaNum > 0)
                 {
-                    File.AppendAllLines(outputFile, record);
+                    for (var j = 0; j < criteriaNum; j++)
+                    {
+                        criterias.Add(CreateCriteria(newStory, words));
+                    }
                 }
-                catch (UnauthorizedAccessException e)
+                else
                 {
-                    Console.WriteLine(e.Message);
+                    criterias = null;
                 }
+                CreateDbEntry(newStory, criterias);
             }
 
+            //var result = SearchStoryById("US6");
+            //Console.WriteLine("AS A " + result.Actor + "\nI WANT TO " + result.Goal + "\nSO THAT " + result.Value);
+
+
+            Console.WriteLine("Records saved. Press any key to exit...");
             Console.ReadKey();
         }
 
-        public static List<string> CreateRecord(Queue<string> words)
+        public static UserStory CreateUserStory(string uid, Queue<string> words)
         {
-            var record = new List<string>();
-            var rnd = new Random();
-            var criteriaNum = rnd.Next(0, 7);
-
-            record.Add($"AS A {CreateRecordLine(words, 1, 5)}");
-            record.Add($"I WANT TO {CreateRecordLine(words, 8, 13)}");
-            record.Add($"SO THAT {CreateRecordLine(words, 10, 17)}");
-            record.Add("\n");
-
-            for (var i = 0; i < criteriaNum; i++)
+            var newStory = new UserStory
             {
-                record.Add(CreateRecordLine(words, 2, 7));
-                record.Add(CreateRecordLine(words, 15, 32));
+                Id = uid,
+                Actor = CreateRecordLine(words, 1, 5),
+                Goal = CreateRecordLine(words, 8, 13),
+                Value = CreateRecordLine(words, 10, 17)
+            };
+
+            return newStory;
+        }
+
+        public static Criteria CreateCriteria(UserStory userStory, Queue<string> words)
+        {
+            var newCriteria = new Criteria
+            {
+                UserStory = userStory,
+                Header = CreateRecordLine(words, 2, 7),
+                Content = CreateRecordLine(words, 10, 17)
+            };
+            return newCriteria;
+        }
+
+        public static void CreateDbEntry(UserStory userStory, List<Criteria> criterias = null)
+        {
+            using (var db = new StoryDbContext())
+            {
+                db.Stories.Add(userStory);
+                if (criterias != null)
+                {
+                    db.Criterias.AddRange(criterias);
+                }
+                db.SaveChanges();
+            }
+        }
+
+        public static UserStory SearchStoryById(string uid)
+        {
+            UserStory result;
+            using (var db = new StoryDbContext())
+            {
+                var query = from s in db.Stories where s.Id == uid select s;
+                result = query.ToList()[0];
             }
 
-            record.Add("\n");
-            record.Add("\n");
-
-            return record;
+            return result;
         }
 
         public static string CreateRecordLine(Queue<string> words, int low, int high)
